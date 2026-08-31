@@ -1,4 +1,5 @@
 #include "CoreTypes.h"
+#include "CoreUtil.h"
 #include <raylib.h>
 #include <vector>
 
@@ -36,27 +37,33 @@ GlobalSettings* GlobalSettings::GetSettings()
 
 bool RenderData::Apply(RenderData::Internal&& data)
 {
-	if(!guard.try_lock())
+	if(!mutex.try_lock())
 		return false;
 	sprite = std::move(data);
-	guard.unlock();
+	mutex.unlock();
 	return true;
 }
 
 bool RenderData::Apply(RenderData& data)
 {
-	if(!guard.try_lock())
+	if(!mutex.try_lock())
 		return false;
 	sprite = data.sprite;
 	return true;
 }
 
+bool RenderData::Apply(Vector2&& pos)
+{
+	sprite.position = pos;
+	return true;
+}
+
 bool RenderData::DrawSprite()
 {
-	if(!guard.try_lock())
+	if(!mutex.try_lock())
 		return false;
 	DrawTextureRec(sprite.texture, sprite.frame, sprite.position, WHITE);
-	guard.unlock();
+	mutex.unlock();
 	return true;
 }
 
@@ -139,12 +146,12 @@ void RenderSystem::Draw()
 
 Grid::Grid(TileCoordinate& inOrigin, IntVector& inDirection) : origin(inOrigin), direction(inDirection)
 {
-	grid.emplace_back(std::vector<RenderData>{});
+	grid.emplace_back(std::vector<RenderData>(1));
 }
 Grid::Grid(TileCoordinate&& inOrigin, IntVector&& inDirection) : origin(inOrigin), direction(inDirection)
 {
 
-	grid.emplace_back(std::vector<RenderData>{});
+	grid.emplace_back(std::vector<RenderData>(1));
 }
 
 Grid::~Grid()
@@ -160,8 +167,18 @@ bool Grid::GetTileRenderData(TileCoordinate coord, RenderData& out)
 	return true;
 }
 
-void Grid::DrawTick(std::span<std::span<RenderData>>& drawStack, float delta)
-{}
+void Grid::DrawTick(std::span<RenderData>& drawStack, float delta)
+{
+	for(int i = 0; i < grid.size(); i++)
+	{
+		for(int j = 0; j < grid[i].size(); j++)
+		{
+			TileCoordinate coord {i,j};
+			grid[i][j].Apply(CoreUtil::GetCenterTrueCoordinates(this, coord));
+			grid[i][j].DrawSprite();
+		}
+	}
+}
 
 
 
@@ -174,22 +191,20 @@ void Grid::DrawTick(std::span<std::span<RenderData>>& drawStack, float delta)
 
 bool Grid::UpdateTile(TileCoordinate coord, RenderData& in, bool expandGrid)
 {
-	if (expandGrid)
-	{
-		if (!WithinGrid(coord))
-		{
-			if(coord.X == 0 && coord.Y == 0)
-				ExpandGridTo({1,1});
-		}
-		grid[coord.X][coord.Y].Apply(in);
-		return true;
-	}
-	else
-	{
-		if (!WithinGrid(coord))
-			return false;
-	}
-	return false;
+    if (expandGrid && !WithinGrid(coord))
+    {
+        ExpandGridTo(coord);
+    }
+
+    if (!WithinGrid(coord))
+        return false;
+
+    // Now we know the cell exists
+    TileCoordinate local = coord - origin;
+    local.X = std::abs(local.X);
+    local.Y = std::abs(local.Y);
+    grid[local.X][local.Y].Apply(in);  // or use move assignment
+    return true;
 }
 
 bool Grid::UpdateTiles(TileCoordinate from, TileCoordinate to, RenderData& in, bool expandGrid)
@@ -199,37 +214,34 @@ bool Grid::UpdateTiles(TileCoordinate from, TileCoordinate to, RenderData& in, b
 
 bool Grid::WithinGrid(TileCoordinate coord)
 {
-	TileCoordinate localCoord = coord - origin;
-	localCoord.X = std::abs(localCoord.X);
-	localCoord.Y = std::abs(localCoord.Y);
+    TileCoordinate localCoord = coord - origin;
+    localCoord.X = std::abs(localCoord.X);
+    localCoord.Y = std::abs(localCoord.Y);
 
-	if(grid.size() == 0 || grid.size() < localCoord.X)
-		return false;
+    if (grid.size() <= static_cast<size_t>(localCoord.X))
+        return false;
 
-	if(grid[localCoord.X].size() == 0 || grid[localCoord.X].size() < localCoord.Y)
-		return false;
-	
-	return true;
+    if (grid[localCoord.X].size() <= static_cast<size_t>(localCoord.Y))
+        return false;
+
+    return true;
 }
 
 bool Grid::ExpandGridTo(TileCoordinate coord)
 {
-	if(grid.size() == 0 || (coord.X == 0 && coord.Y == 0))
-	{
-		return false;
-	}
-	TileCoordinate localCoord = coord - origin;
-	localCoord.X = std::abs(localCoord.X);
-	localCoord.Y = std::abs(localCoord.Y);
+    TileCoordinate local = coord - origin;
+    local.X = std::abs(local.X);
+    local.Y = std::abs(local.Y);
 
-	if(grid.size() < localCoord.X)
-	{
-		grid.resize(localCoord.X);
-	}
-	for(int i = 0; i < grid.size(); i++)
-	{
-		grid[i].resize(localCoord.Y);
-	}
-	
-	return true;
+    size_t neededRows = static_cast<size_t>(local.X) + 1;
+    if (grid.size() < neededRows)
+        grid.resize(neededRows);
+
+    size_t neededCols = static_cast<size_t>(local.Y) + 1;
+    for (auto& row : grid)
+    {
+        if (row.size() < neededCols)
+            row.resize(neededCols);
+    }
+    return true;
 }

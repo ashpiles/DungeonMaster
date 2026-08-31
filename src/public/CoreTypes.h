@@ -63,7 +63,7 @@ private:
 class IMultiRender : public IBaseRender
 {
 public:
-	virtual void DrawTick(std::span<std::span<RenderData>>& drawStack, float delta) = 0;
+	virtual void DrawTick(std::span<RenderData>& drawStack, float delta) = 0;
 
 private:
 	virtual void DrawTick_Internal(std::span<RenderData>& stack) override
@@ -125,13 +125,12 @@ public:
 	// move assignment
 	RenderData& operator=(RenderData&& other)
 	{
-		if (this != &other && guard.try_lock())
+		if (this != &other)
 		{
 			sprite = std::move(other.sprite);
 			animation = std::exchange(other.animation, nullptr);
 			deltaTime = other.deltaTime;
 			numOfSkippedCycles = other.numOfSkippedCycles;
-			guard.unlock();
 		}
 
 		return *this;
@@ -139,9 +138,10 @@ public:
 
 	RenderData& operator=(Internal&& other)
 	{
-		if (guard.try_lock())
+		if (mutex.try_lock())
 		{
 			sprite = std::move(other);
+			mutex.unlock();
 		}
 		return *this;
 	}
@@ -150,11 +150,12 @@ public:
 	RenderData& operator=(const RenderData&) = delete;
 	bool Apply(Internal&& data);
 	bool Apply(RenderData& data);
+	bool Apply(Vector2&& pos);
 	bool DrawSprite();
 
 	float deltaTime;
 	int numOfSkippedCycles;
-	std::mutex guard;
+	std::mutex mutex;
 };
 
 
@@ -183,7 +184,7 @@ public:
 	bool GetTileRenderData(TileCoordinate coord, RenderData& out);
 	bool UpdateTile(TileCoordinate coord, RenderData& in, bool expandGird = false);
 	bool UpdateTiles(TileCoordinate from, TileCoordinate to, RenderData& in, bool expandGrid = false);
-	virtual void DrawTick(std::span<std::span<RenderData>>&, float delta) override;
+	virtual void DrawTick(std::span<RenderData>&, float delta) override;
 
 protected:
 	bool WithinGrid(TileCoordinate coord);
