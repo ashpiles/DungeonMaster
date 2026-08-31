@@ -3,7 +3,7 @@
 // Functional Reactive Animation
 namespace FRAN
 {
-	// A function of time returning any real number
+	// A function of time returning any real number, or in our case T
 	template <typename T>
 	using Behavior = std::function<T(float)>;
 

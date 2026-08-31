@@ -17,7 +17,7 @@ Another very important concept to Fran are events, which are a little of what yo
 
 
 ## Current Roadmap
-- [ ] **Implement Fran Module**
+- [x] **Implement Fran Module**
 - [ ] **Finish Implementation of Render System**
     - *to properly experiment with Fran the best method seems to be exposing a DrawTick loop that Fran types and functions are used within*
 - [ ] **Refactor Render System to use Fran Behaviours**
