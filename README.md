@@ -16,12 +16,12 @@ Another very important concept to Fran are events, which are a little of what yo
 
 
 ## Road Map
- - [ ]**Finish Implementation of Render System**
+ - [ ] **Finish Implementation of Render System**
     - *to properly expirment with Fran the best method seems to be exposing a DrawTick loop that Fran types and functions are used within*
-- [ ]**Create Function to Handle Sprite Sheets**
-- [ ]**Implement Fran Module**
-- [ ]**Implement Fran Events**
+- [ ] **Create Function to Handle Sprite Sheets**
+- [ ] **Implement Fran Module**
+- [ ] **Implement Fran Events**
     - *while behaviours are implemented in the Fran module, events are not*
     - *everything about Fran is conceptually dense and difficult to implement so this will become a priority as necassary*
-- [ ]**Create a Particle System Based on Fran**
+- [ ] **Create a Particle System Based on Fran**
     - *this is will be a good limit test and likely force some optimization strategies to emerge*
