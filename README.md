@@ -23,12 +23,11 @@ Another very important concept to Fran are events, which are a little of what yo
 - [ ] **Refactor Render System to use Fran Behaviours**
 - [x] **Create Function to Handle Sprite Sheets**
 - [ ] **Fix RenderData Mutex Idea**
-    - *Replace per element mutex with a centralized lock free task graph scheduler*
+    - *Replace per element mutex with a small task scheduler utilizing std::async*
 - [ ] **Fix Singleton Systems Idea**
     - *this is drawing upon the Unreal Engine Subsystems*
     - *needs to be recreated with multi threading in mind, fine for now*
-- [ ] **Change Build System to CMake**
-- [ ] **Setup Async Render Pipeline** 
+- [ ] **Improve Build System to Work on All Machines**
 - [ ] **Fix Coordinate Mapping**
     - *Flatten grid to 1D vector and respectively update GetTrueCoordinates*
 - [ ] **Implement Fran Events**
