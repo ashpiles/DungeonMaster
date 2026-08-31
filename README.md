@@ -28,7 +28,8 @@ Another very important concept to Fran are events, which are a little of what yo
     - *this is drawing upon the Unreal Engine Subsystems*
     - *needs to be recreated with multi threading in mind, fine for now*
 - [ ] **Change Build System to CMake**
-- [ ] **Setup Async Render Pipeline** [ ] **Fix Coordinate Mapping**
+- [ ] **Setup Async Render Pipeline** 
+- [ ] **Fix Coordinate Mapping**
     - *Flatten grid to 1D vector and respectively update GetTrueCoordinates*
 - [ ] **Implement Fran Events**
     - *while behaviours are implemented in the Fran module, events are not*
