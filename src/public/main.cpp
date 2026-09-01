@@ -21,38 +21,30 @@ int main(void)
 
   InitWindow(Settings->screenWidth, Settings->screenHeight,
              Settings->windowName.c_str());
-  Texture2D floorSpriteSheet
-    = LoadTexture("/home/ash/Workspace/dev/DungeonMaster/content/Tiled_files/"
-                  "walls_floor.png");
-  std::vector<RenderData> renderData
-    = CoreUtil::CreateRenderDataFromSpriteSheet(floorSpriteSheet, 16);
+  Texture2D floorSpriteSheet = LoadTexture(
+      "/home/ash/Workspace/dev/DungeonMaster/content/Tiled_files/"
+      "walls_floor.png");
+
+  // gives the data like a wond snake
+  // what if I just stored a sprite sheet as a grid
+  SpriteLayout renderData
+      = CoreUtil::CreateRenderDataFromSpriteSheet(floorSpriteSheet, 16);
 
   RenderTexture2D target = LoadRenderTexture(320, 180);
   SetTextureFilter(target.texture, TEXTURE_FILTER_POINT);
 
-  Grid *grid1 = new Grid({0, 0}, {1, 1});   // NE
-  Grid *grid2 = new Grid({0, 0}, {-1, 1});  // SE
-  Grid *grid3 = new Grid({0, 0}, {-1, -1}); // SW
-  Grid *grid4 = new Grid({0, 0}, {1, -1});  // NW
+  Grid *grid1 = new Grid(&renderData, {0, 0}, {1, 1}); // NE
+  // Grid *grid2 = new Grid({0, 0}, {-1, 1});  // SE
+  // Grid *grid3 = new Grid({0, 0}, {-1, -1}); // SW
+  // Grid *grid4 = new Grid({0, 0}, {1, -1});  // NW
 
-  // just going to hard code a loop that displays the recently chopped up sprite
-  // sheet to demo the grid it looks like the positioning for the tiles is off
-  auto func = [&]() {
-    float cellHeight = float(floorSpriteSheet.height) / 16;
-    float cellWidth = float(floorSpriteSheet.width) / 16;
-    int i = 0;
-    for(int w = 0; w * cellWidth < floorSpriteSheet.width; w++)
-      {
-        for(int h = 0; h * cellHeight < floorSpriteSheet.height; h++)
-          {
-            if(renderData.size() <= static_cast<size_t>(i))
-              return;
-            grid1->UpdateTile({h, w}, renderData[i]);
-            i++;
-          }
-      }
-  };
-  func();
+  // just going to hard code a loop that displays the recently chopped up
+  // sprite sheet to demo the grid it looks like the positioning for the tiles
+  // is off
+  //
+  //
+  // the sprite sheet gets cut by columns and one column comes in backwards
+  // with the next forwards
 
   // auto DrawTick = std::async(std::launch::async, &RenderSystem::Draw,
   // Renderer);
@@ -68,7 +60,9 @@ int main(void)
   // for the render system I need to rethink the pipeline so that it works with
   // the texture we throw everything into
 
-  std::span<RenderData> span(renderData);
+  std::vector<RenderData> vec;
+  vec.emplace_back(RenderData({floorSpriteSheet}));
+  std::span<RenderData> span(vec);
   float gameScreenWidth = 640;
   float gameScreenHeight = 360;
 
@@ -76,17 +70,19 @@ int main(void)
     {
       float scale = std::min((float)GetScreenWidth() / gameScreenWidth,
                              (float)GetScreenHeight() / gameScreenHeight);
+
       BeginTextureMode(target);
       grid1->DrawTick(span, 0);
       EndTextureMode();
+
       BeginDrawing();
       ClearBackground(RAYWHITE);
       DrawTexturePro(
-        target.texture,
-        {0, 0, (float)target.texture.width, (float)-target.texture.height},
-        {0, 0, (float)gameScreenWidth * scale,
-         (float)gameScreenHeight * scale},
-        {0, 0}, 0.0f, WHITE);
+          target.texture,
+          {0, 0, (float)target.texture.width, (float)-target.texture.height},
+          {0, 0, (float)gameScreenWidth * scale,
+           (float)gameScreenHeight * scale},
+          {0, 0}, 0.0f, WHITE);
       EndDrawing();
     }
   CloseWindow();

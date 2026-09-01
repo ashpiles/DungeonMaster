@@ -1,7 +1,6 @@
 #include "CoreTypes.h"
 #include "CoreUtil.h"
 #include <raylib.h>
-#include <vector>
 
 /*===========================================================*/
 //		      Global Settings
@@ -41,6 +40,7 @@ bool RenderData::Apply(RenderData &data)
 bool RenderData::Apply(Vector2 &&pos)
 {
   sprite.position = pos;
+  initalizedTruePosition = true;
   return true;
 }
 
@@ -106,7 +106,7 @@ void RenderSystem::Draw()
             }
           mean[layer].deltaTime = mean[layer].deltaTime / RENDER_STACK_LENGTH;
           mean[layer].numOfSkippedCycles
-            = int(mean[layer].numOfSkippedCycles / RENDER_STACK_LENGTH);
+              = int(mean[layer].numOfSkippedCycles / RENDER_STACK_LENGTH);
         }
       // find the next layer to work on
       for(auto data : mean) {}
@@ -122,12 +122,14 @@ void RenderSystem::Draw()
 //	        		Grid
 /*===========================================================*/
 
-Grid::Grid(TileCoordinate &inOrigin, IntVector &inDirection)
-    : origin(inOrigin), direction(inDirection)
-{ grid.emplace(); }
-Grid::Grid(TileCoordinate &&inOrigin, IntVector &&inDirection)
-    : origin(inOrigin), direction(inDirection)
-{ grid.emplace(); }
+Grid::Grid(SpriteLayout *layout, TileCoordinate &inOrigin,
+           IntVector &inDirection)
+    : origin(inOrigin), direction(inDirection), grid(layout)
+{}
+Grid::Grid(SpriteLayout *layout, TileCoordinate &&inOrigin,
+           IntVector &&inDirection)
+    : origin(inOrigin), direction(inDirection), grid(layout)
+{}
 
 Grid::~Grid() {}
 
@@ -142,10 +144,15 @@ bool Grid::GetTileRenderData(TileCoordinate coord, RenderData &out)
 void Grid::DrawTick(std::span<RenderData> &drawStack, float delta)
 {
   GlobalSettings *settings = GlobalSettings::GetSettings();
-  for(const auto &pair : grid)
+  for(auto &pair : *grid)
     {
+      if(!pair.second.initalizedTruePosition)
+        pair.second.Apply(CoreUtil::GetTrueCoordinates(this, pair.first));
+
       pair.second.DrawSprite();
     }
+
+  // these are grid debug lines
   for(int x = 0; x < settings->screenWidth; x += 16)
     {
       DrawLineDashed({(float)x, 0}, {(float)x, (float)settings->screenHeight},
@@ -168,12 +175,11 @@ void Grid::DrawTick(std::span<RenderData> &drawStack, float delta)
 
 bool Grid::UpdateTile(TileCoordinate coord, RenderData &in)
 {
-  // Now we know the cell exists
   TileCoordinate local = coord - origin;
   local.x = std::abs(local.x);
   local.y = std::abs(local.y);
   in.Apply(CoreUtil::GetTrueCoordinates(this, local));
-  grid[local].Apply(in); // or use move assignment
+  grid->at(local).Apply(in);
   return true;
 }
 

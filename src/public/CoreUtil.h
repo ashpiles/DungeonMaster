@@ -1,18 +1,20 @@
 #include "raylib.h"
-#include <vector>
+#include <unordered_map>
 
 struct TileCoordinate;
 class Grid;
 struct RenderData;
 
-class CoreUtil {
+class CoreUtil
+{
 public:
   CoreUtil() = delete;
   ~CoreUtil() = delete;
-  static Vector2 GetTrueCoordinates(Grid *grid, TileCoordinate &coord);
+  static Vector2 GetTrueCoordinates(Grid *grid, const TileCoordinate &coord);
 
-  static Vector2 GetCenterTrueCoordinates(Grid *grid, TileCoordinate &coord);
+  static Vector2
+  GetCenterTrueCoordinates(Grid *grid, const TileCoordinate &coord);
 
-  static std::vector<RenderData>
+  static std::unordered_map<TileCoordinate, RenderData>
   CreateRenderDataFromSpriteSheet(Texture2D &texture, float cellSize);
 };

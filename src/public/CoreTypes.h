@@ -7,11 +7,14 @@
 #include <vector>
 
 struct RenderData;
+struct TileCoordinate;
 
 /*===========================================================*/
-//			Defines
+//			Defines & types
 /*===========================================================*/
 #define RENDER_STACK_LENGTH 32
+
+typedef std::unordered_map<TileCoordinate, RenderData> SpriteLayout;
 
 /*===========================================================*/
 //			Interfaces
@@ -81,9 +84,9 @@ struct IntVector
 
 struct TileCoordinate : public IntVector
 {
-  TileCoordinate operator+(const IntVector &other)
+  TileCoordinate operator+(const IntVector &other) const
   { return TileCoordinate{x + other.x, y + other.y}; }
-  TileCoordinate operator-(const IntVector &other)
+  TileCoordinate operator-(const IntVector &other) const
   { return TileCoordinate{x - other.x, y - other.y}; }
   bool operator==(const TileCoordinate &other)
   { return x == other.x && y == other.y; }
@@ -134,6 +137,7 @@ public:
         animation = std::exchange(other.animation, nullptr);
         deltaTime = other.deltaTime;
         numOfSkippedCycles = other.numOfSkippedCycles;
+        initalizedTruePosition = other.initalizedTruePosition;
       }
 
     return *this;
@@ -145,8 +149,6 @@ public:
     return *this;
   }
 
-  RenderData(const RenderData &) = delete;
-  RenderData &operator=(const RenderData &) = delete;
   bool Apply(Internal &&data);
   bool Apply(RenderData &data);
   bool Apply(Vector2 &&pos);
@@ -154,6 +156,7 @@ public:
 
   float deltaTime;
   int numOfSkippedCycles;
+  bool initalizedTruePosition = false;
 };
 
 /*===========================================================*/
@@ -173,8 +176,8 @@ public:
   const TileCoordinate origin;
   const IntVector direction;
 
-  Grid(TileCoordinate &origin, IntVector &direction);
-  Grid(TileCoordinate &&origin, IntVector &&direction);
+  Grid(SpriteLayout *layout, TileCoordinate &origin, IntVector &direction);
+  Grid(SpriteLayout *layout, TileCoordinate &&origin, IntVector &&direction);
   virtual ~Grid();
 
   bool GetTileRenderData(TileCoordinate coord, RenderData &out);
@@ -187,7 +190,7 @@ protected:
   bool ExpandGridTo(TileCoordinate coord);
 
 private:
-  std::unordered_map<TileCoordinate, RenderData> grid;
+  SpriteLayout *const grid;
 };
 
 class Actor : public IRender
