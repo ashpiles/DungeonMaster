@@ -1,6 +1,6 @@
-#include "CoreUtil.h"
 #include "CoreTypes.h"
-#include <raylib.h>
+#include "CoreUtil.h"
+#include "WorldGen/Tiles.h"
 
 /*
  * do I need to create a unique asset file type to encode collisions into the
@@ -31,46 +31,22 @@
  * so the issue now is that
  */
 
-Vector2 CoreUtil::GetTrueCoordinates(Grid *grid, const TileCoordinate &coord)
+Vector2 CoreUtil::GetTrueCoordinates(Grid *grid, const IntVector &coord)
 {
   float tileSize = GlobalSettings::GetSettings()->tileSize;
 
-  TileCoordinate local = coord - grid->origin;
-  return {grid->origin.x * tileSize + (grid->direction.x * local.x * tileSize),
-          grid->origin.y * tileSize
-              + (grid->direction.y * local.y * tileSize)};
+  IntVector local = coord - grid->origin;
+  return {grid->origin.x * tileSize + (local.x * tileSize),
+          grid->origin.y * tileSize + (local.y * tileSize)};
 }
 
-Vector2
-CoreUtil::GetCenterTrueCoordinates(Grid *grid, const TileCoordinate &coord)
+Vector2 CoreUtil::GetCenterTrueCoordinates(Grid *grid, const IntVector &coord)
 {
   float tileSize = GlobalSettings::GetSettings()->tileSize;
 
   Vector2 topLeft = GetTrueCoordinates(grid, coord); // Pass the grid!
 
-  Vector2 halfExtents = {grid->direction.x * (tileSize / 2),
-                         grid->direction.y * (tileSize / 2)};
+  Vector2 halfExtents = {(tileSize / 2), (tileSize / 2)};
 
   return {topLeft.x + halfExtents.x, topLeft.y + halfExtents.y};
 }
-
-SpriteLayout
-CoreUtil::CreateRenderDataFromSpriteSheet(Texture2D &texture, float cellSize)
-{
-  SpriteLayout data;
-  float cellHeight = texture.height / cellSize;
-  float cellWidth = texture.width / cellSize;
-
-  data.reserve(int(cellHeight * cellWidth));
-
-  for(int w = 0; w < cellWidth; w++)
-    {
-      for(int h = 0; h < cellHeight; h++)
-        {
-          data[{w, h}] = RenderData({texture,
-                                     {float(w) * cellSize, float(h) * cellSize,
-                                      cellSize, cellSize}});
-        }
-    }
-  return data;
-};

@@ -1,12 +1,24 @@
 #include "CoreTypes.h"
 #include "CoreUtil.h"
+#include "WorldGen/Tiles.h"
 #include "raylib.h"
 
 /*
- * 1 minute bullet chess,
- * but you unlock pieces types like a tier tree
+ *  Lets just do a mystery dungeon instead.
  *
- * fly weight for the tile assets
+ * fill the grid with floors
+ * change floor color at a range (when 5 tiles away from 0,0 change color ect)
+ *
+ * create player actor
+ * move camera & player actor with wasd
+ */
+
+/*
+ * to fill the scene with floor tiles I need to fill the grid with tiles
+ * I also need to fill the render system with enough tiles to render the screen
+ * TODO: get the number of tiles necassasry to fill the screen
+ * TODO: create that number of render data objs
+ * TODO: create sprite atlas system again
  */
 
 int main(void)
@@ -21,58 +33,39 @@ int main(void)
 
   InitWindow(Settings->screenWidth, Settings->screenHeight,
              Settings->windowName.c_str());
-  Texture2D floorSpriteSheet = LoadTexture(
-      "/home/ash/Workspace/dev/DungeonMaster/content/Tiled_files/"
-      "walls_floor.png");
 
-  // gives the data like a wond snake
-  // what if I just stored a sprite sheet as a grid
-  SpriteLayout renderData
-      = CoreUtil::CreateRenderDataFromSpriteSheet(floorSpriteSheet, 16);
+  Texture2D floorSpriteSheet = LoadTexture(
+      "/home/ash/Workspace/dev/DungeonMaster/content/32rogues/tiles.png");
+
+  SpriteAtlas floorAtlas(&floorSpriteSheet);
 
   RenderTexture2D target = LoadRenderTexture(320, 180);
   SetTextureFilter(target.texture, TEXTURE_FILTER_POINT);
 
-  Grid *grid1 = new Grid(&renderData, {0, 0}, {1, 1}); // NE
-  // Grid *grid2 = new Grid({0, 0}, {-1, 1});  // SE
-  // Grid *grid3 = new Grid({0, 0}, {-1, -1}); // SW
-  // Grid *grid4 = new Grid({0, 0}, {1, -1});  // NW
+  Grid *grid = new Grid({0, 0});
 
-  // just going to hard code a loop that displays the recently chopped up
-  // sprite sheet to demo the grid it looks like the positioning for the tiles
-  // is off
-  //
-  //
-  // the sprite sheet gets cut by columns and one column comes in backwards
-  // with the next forwards
-
-  // auto DrawTick = std::async(std::launch::async, &RenderSystem::Draw,
-  // Renderer);
-  //  maybe we render async?
-
-  // so on draw tick we fill each slot of render data
-  // then we render them
-  // keep it simple just render a layer at a time
-  // the draw tick gets called on game loop
-  //
-  // but we redner async as fast as we can by loop
-
-  // for the render system I need to rethink the pipeline so that it works with
-  // the texture we throw everything into
-
-  std::vector<RenderData> vec;
-  vec.emplace_back(RenderData({floorSpriteSheet}));
-  std::span<RenderData> span(vec);
   float gameScreenWidth = 640;
   float gameScreenHeight = 360;
+
+  Vector2 camera{0, 0};
 
   while(!WindowShouldClose())
     {
       float scale = std::min((float)GetScreenWidth() / gameScreenWidth,
                              (float)GetScreenHeight() / gameScreenHeight);
 
+      if(IsKeyDown(KEY_W))
+        camera.y -= 1.0f;
+      else if(IsKeyDown(KEY_A))
+        camera.x -= 1.0f;
+      else if(IsKeyDown(KEY_D))
+        camera.x += 1.0f;
+      else if(IsKeyDown(KEY_S))
+        camera.y += 1.0f;
+
       BeginTextureMode(target);
-      grid1->DrawTick(span, 0);
+      grid->DrawTick(0);
+      // calls the draw function
       EndTextureMode();
 
       BeginDrawing();
@@ -82,7 +75,7 @@ int main(void)
           {0, 0, (float)target.texture.width, (float)-target.texture.height},
           {0, 0, (float)gameScreenWidth * scale,
            (float)gameScreenHeight * scale},
-          {0, 0}, 0.0f, WHITE);
+          {camera.x * 16, camera.y * 16}, 0.0f, WHITE);
       EndDrawing();
     }
   CloseWindow();

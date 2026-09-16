@@ -1,3 +1,4 @@
+#pragma once
 #include "raylib.h"
 #include "stdlib.h"
 #include <span>
@@ -7,14 +8,14 @@
 #include <vector>
 
 struct RenderData;
-struct TileCoordinate;
+struct IntVector;
+struct Sprite;
 
 /*===========================================================*/
 //			Defines & types
 /*===========================================================*/
-#define RENDER_STACK_LENGTH 32
-
-typedef std::unordered_map<TileCoordinate, RenderData> SpriteLayout;
+#define RENDER_STACK_LENGTH 3
+#define TILE_SIZE 32
 
 /*===========================================================*/
 //			Interfaces
@@ -26,77 +27,34 @@ public:
   virtual const ISystem *GetSystem() = 0;
 };
 
-class IBaseRender
-{
-public:
-  virtual void DrawTick_Internal(std::span<RenderData> &stack) = 0;
-};
-
-class IRender : public IBaseRender
-{
-public:
-  // we'll treat the array as the z order as well
-  virtual void DrawTick(std::span<RenderData> &drawStack, float delta) = 0;
-
-  /*
-   * first phase: async gather the textures for a layer
-   *	-> do some slight continuation passing shennigans
-   *	maybe use async???
-   *
-   * -> fill the memory that we will need
-   * -> go to next obj until out of renderable objs
-   * -> iterate over the draw stack
-   *  -> i could try and pause
-   *
-   *  we call an obj and give it data to fill
-   *  we wrap that in an internal call
-   *  inside the internal call we get the memory to fill
-   *  we could split the filling memory and rendering with async!
-   *
-   *  we need to have meta data about updates
-   */
-
-private:
-  virtual void DrawTick_Internal(std::span<RenderData> &stack) override
-  { DrawTick(stack, 0); };
-};
-
-class IMultiRender : public IBaseRender
+class IRender
 {
 public:
   virtual void DrawTick(std::span<RenderData> &drawStack, float delta) = 0;
-
-private:
-  virtual void DrawTick_Internal(std::span<RenderData> &stack) override {
-    // DrawTick(stack, 0);
-  };
 };
 
 /*===========================================================*/
-//							Struct
+//	        		Struct
 /*===========================================================*/
 
 struct IntVector
 {
   int x = 0;
   int y = 0;
-};
 
-struct TileCoordinate : public IntVector
-{
-  TileCoordinate operator+(const IntVector &other) const
-  { return TileCoordinate{x + other.x, y + other.y}; }
-  TileCoordinate operator-(const IntVector &other) const
-  { return TileCoordinate{x - other.x, y - other.y}; }
-  bool operator==(const TileCoordinate &other)
+  IntVector operator+(const IntVector &other) const
+  { return IntVector{x + other.x, y + other.y}; }
+  IntVector operator-(const IntVector &other) const
+  { return IntVector{x - other.x, y - other.y}; }
+  bool operator==(const IntVector &other)
   { return x == other.x && y == other.y; }
-  bool operator==(const TileCoordinate &other) const
+  bool operator==(const IntVector &other) const
   { return x == other.x && y == other.y; }
 };
 
-template <> struct std::hash<TileCoordinate>
+template <> struct std::hash<IntVector>
 {
-  std::size_t operator()(const TileCoordinate &coord) const
+  std::size_t operator()(const IntVector &coord) const
   {
     std::size_t h1 = std::hash<int>{}(coord.x);
     std::size_t h2 = std::hash<int>{}(coord.y);
@@ -104,18 +62,19 @@ template <> struct std::hash<TileCoordinate>
   }
 };
 
-// this is what we will eventually turn into a flyweight
+// its bad I'm giving it a loose raw pointer I need to handle that
+// with some guard rails later
+struct Sprite
+{
+  Texture2D *texture;
+  Rectangle frame;
+};
+
 struct RenderData
 {
 private:
-  struct Internal
-  {
-    Texture2D texture;
-    Rectangle frame;
-    Vector2 position;
-  };
-  Internal sprite;
-  Internal **animation;
+  Sprite sprite;
+  Sprite **animation;
 
 public:
   RenderData() = default;
@@ -126,7 +85,7 @@ public:
         deltaTime(other.deltaTime),
         numOfSkippedCycles(other.numOfSkippedCycles)
   {}
-  RenderData(Internal &&other) : sprite(std::move(other)) {}
+  RenderData(Sprite &&other) : sprite(std::move(other)) {}
 
   // move assignment
   RenderData &operator=(RenderData &&other)
@@ -143,59 +102,42 @@ public:
     return *this;
   };
 
-  RenderData &operator=(Internal &&other)
+  RenderData &operator=(Sprite &&other)
   {
     sprite = std::move(other);
     return *this;
   }
 
-  bool Apply(Internal &&data);
   bool Apply(RenderData &data);
-  bool Apply(Vector2 &&pos);
+  bool Apply(RenderData &&data);
+  bool Apply(RenderData *data);
+  bool ApplyInternal(Sprite &&data);
   bool DrawSprite() const;
 
   float deltaTime;
   int numOfSkippedCycles;
   bool initalizedTruePosition = false;
+  Vector2 renderPos;
 };
 
-/*===========================================================*/
-//							BaseClasses
-/*===========================================================*/
-
-/*
- * it could be nice to flesh out the grid obj
- * make it explicitly handle tile coordinates
- * maybe write some functions for checking the grid size?
- * -> could turn that into some test functions maybeee
- */
-
-class Grid : public IMultiRender
+struct SpriteAtlas
 {
-public:
-  const TileCoordinate origin;
-  const IntVector direction;
+  SpriteAtlas(Texture2D *sheet);
 
-  Grid(SpriteLayout *layout, TileCoordinate &origin, IntVector &direction);
-  Grid(SpriteLayout *layout, TileCoordinate &&origin, IntVector &&direction);
-  virtual ~Grid();
-
-  bool GetTileRenderData(TileCoordinate coord, RenderData &out);
-  bool UpdateTile(TileCoordinate coord, RenderData &in);
-  bool UpdateTiles(TileCoordinate from, TileCoordinate to, RenderData &in);
-  virtual void DrawTick(std::span<RenderData> &, float delta) override;
-
-protected:
-  bool WithinGrid(TileCoordinate coord);
-  bool ExpandGridTo(TileCoordinate coord);
+  const Sprite *const GetSpritePtr(IntVector coord);
 
 private:
-  SpriteLayout *const grid;
+  Texture2D *const spriteSheet;
+  std::unordered_map<IntVector, Sprite> atlas;
 };
+
+/*===========================================================*/
+//	        	BaseClasses
+/*===========================================================*/
 
 class Actor : public IRender
 {
-  TileCoordinate coordinate{};
+  IntVector coordinate{};
   Texture2D textureResource;
 
 public:
@@ -204,9 +146,12 @@ public:
 };
 
 /*===========================================================*/
-//							Singletons
+//			Singletons
 /*===========================================================*/
 
+// instead of a singleton this could be a config file at some point
+// with a service that will go and read the file, sort of like how UE
+// does configs, but for the sake of prototyping a singleton is perfectly fine
 class GlobalSettings : public ISystem
 {
 public:
@@ -224,6 +169,13 @@ private:
   static GlobalSettings *instance;
 };
 
+// This should be turned into a service as well
+// the idea is that our RenderSystem will hold the
+// memory of our render data in an object pool
+// this memory has no context on where to render to
+//
+// we also assign the
+
 class RenderSystem : public ISystem
 {
 public:
@@ -237,6 +189,8 @@ public:
 private:
   static RenderSystem *instance;
 
-  std::vector<IBaseRender *> renderObjs;
-  std::vector<RenderData> renderStack[RENDER_STACK_LENGTH];
+  // Objects that must be drawn next tick
+  std::vector<IRender *> drawStack;
+  // Memory we give to objects
+  std::vector<RenderData> renderMemory[RENDER_STACK_LENGTH];
 };

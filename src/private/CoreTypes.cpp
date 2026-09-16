@@ -25,9 +25,9 @@ GlobalSettings *GlobalSettings::GetSettings()
 //		        Render Data
 /*===========================================================*/
 
-bool RenderData::Apply(RenderData::Internal &&data)
+bool RenderData::ApplyInternal(Sprite &&newSprite)
 {
-  sprite = std::move(data);
+  sprite = std::move(newSprite);
   return true;
 }
 
@@ -37,18 +37,53 @@ bool RenderData::Apply(RenderData &data)
   return true;
 }
 
-bool RenderData::Apply(Vector2 &&pos)
+bool RenderData::Apply(RenderData &&data)
 {
-  sprite.position = pos;
-  initalizedTruePosition = true;
+  sprite = data.sprite;
+  return true;
+}
+
+bool RenderData::Apply(RenderData *data)
+{
+  sprite = data->sprite;
   return true;
 }
 
 bool RenderData::DrawSprite() const
 {
-  DrawTextureRec(sprite.texture, sprite.frame, sprite.position, WHITE);
+  DrawTextureRec(sprite.texture, sprite.frame, renderPos, WHITE);
   return true;
 }
+
+/*===========================================================*/
+//		       Sprite Atlas
+/*===========================================================*/
+
+SpriteAtlas::SpriteAtlas(Texture2D *sheet) : spriteSheet(sheet)
+{
+  float cellHeight = (float)spriteSheet->height / TILE_SIZE;
+  float cellWidth = (float)spriteSheet->width / TILE_SIZE;
+
+  atlas.reserve(int(cellHeight * cellWidth));
+
+  for(int w = 0; w < cellWidth; w++)
+    {
+      for(int h = 0; h < cellHeight; h++)
+        {
+          atlas[{w, h}] = Sprite{spriteSheet,
+                                 {float(w) * TILE_SIZE, float(h) * TILE_SIZE,
+                                  TILE_SIZE, TILE_SIZE}};
+        }
+    }
+}
+
+const Sprite *const SpriteAtlas::GetSpritePtr(IntVector coord)
+{
+  if(!atlas.contains(coord))
+    return nullptr;
+
+  return &atlas[coord];
+};
 
 /*===========================================================*/
 //		        Render System
@@ -77,7 +112,7 @@ void RenderSystem::CallDrawTick()
   // to for better animation coordination but for now i'll keep it easier
   for(int layer = 0; layer < RENDER_STACK_LENGTH; layer++)
     {
-      std::span<RenderData> span(renderStack[layer]);
+      std::span<RenderData> span(renderMemory[layer]);
     }
 };
 
@@ -94,7 +129,7 @@ void RenderSystem::Draw()
       // cycle
       for(int layer = 0; layer < RENDER_STACK_LENGTH; layer++)
         {
-          for(RenderData &data : renderStack[layer])
+          for(RenderData &data : renderMemory[layer])
             {
               if(!data.DrawSprite())
                 {
@@ -117,75 +152,3 @@ void RenderSystem::Draw()
       //	so we have data to base what layer needs an update next
     }
 };
-
-/*===========================================================*/
-//	        		Grid
-/*===========================================================*/
-
-Grid::Grid(SpriteLayout *layout, TileCoordinate &inOrigin,
-           IntVector &inDirection)
-    : origin(inOrigin), direction(inDirection), grid(layout)
-{}
-Grid::Grid(SpriteLayout *layout, TileCoordinate &&inOrigin,
-           IntVector &&inDirection)
-    : origin(inOrigin), direction(inDirection), grid(layout)
-{}
-
-Grid::~Grid() {}
-
-bool Grid::GetTileRenderData(TileCoordinate coord, RenderData &out)
-{
-  if(!WithinGrid(coord))
-    return false;
-
-  return true;
-}
-
-void Grid::DrawTick(std::span<RenderData> &drawStack, float delta)
-{
-  GlobalSettings *settings = GlobalSettings::GetSettings();
-  for(auto &pair : *grid)
-    {
-      if(!pair.second.initalizedTruePosition)
-        pair.second.Apply(CoreUtil::GetTrueCoordinates(this, pair.first));
-
-      pair.second.DrawSprite();
-    }
-
-  // these are grid debug lines
-  for(int x = 0; x < settings->screenWidth; x += 16)
-    {
-      DrawLineDashed({(float)x, 0}, {(float)x, (float)settings->screenHeight},
-                     4, 4, RED);
-      for(int y = 0; y < settings->screenHeight; y += 16)
-        {
-          DrawLineDashed({0, (float)y},
-                         {(float)settings->screenWidth, (float)y}, 4, 4, RED);
-        }
-    }
-}
-
-// need to write some functions that apply int vectors to tile coordinates
-// this will explicitly rely when we are working on a tile position and when we
-// are working with a force
-//
-//
-// maybe the grid is like a crawler and the data underneath is a server??
-// that could be cool
-
-bool Grid::UpdateTile(TileCoordinate coord, RenderData &in)
-{
-  TileCoordinate local = coord - origin;
-  local.x = std::abs(local.x);
-  local.y = std::abs(local.y);
-  in.Apply(CoreUtil::GetTrueCoordinates(this, local));
-  grid->at(local).Apply(in);
-  return true;
-}
-
-bool Grid::UpdateTiles(TileCoordinate from, TileCoordinate to, RenderData &in)
-{ return true; }
-
-bool Grid::WithinGrid(TileCoordinate coord) { return true; }
-
-bool Grid::ExpandGridTo(TileCoordinate coord) { return true; }
